@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>轨迹标注工具</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #121a2c;
+      --panel-2: #18233b;
+      --text: #edf2ff;
+      --muted: #95a3bd;
+      --line: #31415f;
+      --ball: #ffd34d;
+      --far: #00c2ff;
+      --near: #ff70d7;
+      --court: #70ff91;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 14px;
+      min-height: 100vh;
+      padding: 14px;
+    }
+
+    .stage {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .topbar, .side {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+    }
+
+    .side {
+      padding: 12px;
+      overflow: auto;
+    }
+
+    .viewer {
+      min-height: 320px;
+      display: grid;
+      place-items: center;
+      background: #050914;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    video { display: none; }
+    canvas {
+      width: 100%;
+      height: 100%;
+      max-height: calc(100vh - 96px);
+      object-fit: contain;
+      background: #050914;
+      cursor: crosshair;
+    }
+
+    button, input, select, label.file {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 0 10px;
+      font: inherit;
+    }
+
+    button, label.file { cursor: pointer; }
+    button.active[data-mode="ball"] { border-color: var(--ball); box-shadow: inset 0 0 0 1px var(--ball); }
+    button.active[data-mode="far"] { border-color: var(--far); box-shadow: inset 0 0 0 1px var(--far); }
+    button.active[data-mode="near"] { border-color: var(--near); box-shadow: inset 0 0 0 1px var(--near); }
+    button.active[data-mode^="court"] { border-color: var(--court); box-shadow: inset 0 0 0 1px var(--court); }
+    button.active[data-mode="erase"] { border-color: #ff8a80; box-shadow: inset 0 0 0 1px #ff8a80; }
+
+    input[type="file"] { display: none; }
+    input[type="number"] { width: 82px; }
+    input[type="range"] { width: min(420px, 45vw); padding: 0; }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 650;
+    }
+
+    h2 {
+      margin: 18px 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-grid button { width: 100%; }
+    .muted { color: var(--muted); }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat {
+      background: #0c1425;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--text);
+      font-size: 17px;
+    }
+
+    .legend {
+      display: grid;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      margin-right: 7px;
+      border-radius: 50%;
+      vertical-align: 1px;
+    }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      canvas { max-height: 62vh; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="stage">
+      <div class="topbar">
+        <label class="file">打开视频<input id="videoFile" type="file" accept="video/*"></label>
+        <button id="prevFrame">上一帧</button>
+        <button id="nextFrame">下一帧</button>
+        <button id="copyPrev">复制上一帧</button>
+        <span class="muted">帧率</span>
+        <input id="fps" type="number" min="1" max="240" step="0.01" value="30">
+        <input id="scrub" type="range" min="0" max="0" step="1" value="0">
+        <span id="frameLabel" class="muted">第 0 帧</span>
+      </div>
+      <div class="viewer">
+        <video id="video" crossorigin="anonymous"></video>
+        <canvas id="canvas"></canvas>
+      </div>
+    </section>
+
+    <aside class="side">
+      <h1>轨迹标注工具</h1>
+      <div class="stats">
+        <div class="stat"><span class="muted">时长</span><strong id="durationStat">0.0s</strong></div>
+        <div class="stat"><span class="muted">已标帧数</span><strong id="labelStat">0</strong></div>
+      </div>
+
+      <h2>标注模式</h2>
+      <div class="mode-grid">
+        <button class="active" data-mode="far">远端脚点</button>
+        <button data-mode="near">近端脚点</button>
+        <button data-mode="ball">羽毛球</button>
+        <button data-mode="erase">擦除</button>
+        <button data-mode="court0">场地左上</button>
+        <button data-mode="court1">场地右上</button>
+        <button data-mode="court2">场地右下</button>
+        <button data-mode="court3">场地左下</button>
+      </div>
+
+      <h2>导入导出</h2>
+      <div class="row">
+        <button id="exportCsv">导出 CSV</button>
+        <button id="exportJson">导出 JSON</button>
+        <label class="file">导入 JSON<input id="importJson" type="file" accept="application/json"></label>
+      </div>
+      <div class="row">
+        <label><input id="interpolate" type="checkbox" checked> 导出时自动插值补齐空帧</label>
+      </div>
+
+      <h2>当前帧</h2>
+      <div id="currentInfo" class="muted">尚未加载视频。</div>
+
+      <h2>图例</h2>
+      <div class="legend muted">
+        <div><span class="dot" style="background:var(--far)"></span>远端运动员脚点</div>
+        <div><span class="dot" style="background:var(--near)"></span>近端运动员脚点</div>
+        <div><span class="dot" style="background:var(--ball)"></span>羽毛球</div>
+        <div><span class="dot" style="background:var(--court)"></span>场地四角</div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const fpsInput = document.getElementById("fps");
+    const scrub = document.getElementById("scrub");
+    const frameLabel = document.getElementById("frameLabel");
+    const currentInfo = document.getElementById("currentInfo");
+    const labelStat = document.getElementById("labelStat");
+    const durationStat = document.getElementById("durationStat");
+    const interpolateInput = document.getElementById("interpolate");
+
+    let mode = "far";
+    let annotations = {};
+    let court = [null, null, null, null];
+
+    function fps() {
+      return Math.max(1, Number(fpsInput.value) || 30);
+    }
+
+    function frameIndex() {
+      return Math.round(video.currentTime * fps());
+    }
+
+    function maxFrame() {
+      return Math.max(0, Math.floor((video.duration || 0) * fps()));
+    }
+
+    function ensureFrame(frame) {
+      const key = String(frame);
+      if (!annotations[key]) annotations[key] = {};
+      return annotations[key];
+    }
+
+    function seekFrame(frame) {
+      const f = Math.max(0, Math.min(maxFrame(), frame));
+      video.currentTime = f / fps();
+      scrub.value = String(f);
+      draw();
+    }
+
+    function canvasPoint(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = canvas.width / rect.width;
+      const sy = canvas.height / rect.height;
+      return {
+        x: Math.round((evt.clientX - rect.left) * sx),
+        y: Math.round((evt.clientY - rect.top) * sy),
+      };
+    }
+
+    function setPoint(frame, target, point) {
+      const ann = ensureFrame(frame);
+      ann[target] = { x: point.x, y: point.y, v: 1 };
+    }
+
+    function eraseNearest(frame, point) {
+      const ann = annotations[String(frame)];
+      if (!ann) return;
+      let best = null;
+      for (const key of ["far", "near", "ball"]) {
+        if (!ann[key]) continue;
+        const d = Math.hypot(ann[key].x - point.x, ann[key].y - point.y);
+        if (!best || d < best.d) best = { key, d };
+      }
+      if (best && best.d <= 32) delete ann[best.key];
+    }
+
+    function drawPoint(p, color, label) {
+      if (!p || !p.v) return;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(p.x - 12, p.y);
+      ctx.lineTo(p.x + 12, p.y);
+      ctx.moveTo(p.x, p.y - 12);
+      ctx.lineTo(p.x, p.y + 12);
+      ctx.stroke();
+      ctx.font = "16px system-ui";
+      ctx.fillText(label, p.x + 10, p.y - 10);
+      ctx.restore();
+    }
+
+    function drawCourt() {
+      const valid = court.filter(Boolean);
+      if (valid.length === 0) return;
+      ctx.save();
+      ctx.strokeStyle = "#70ff91";
+      ctx.fillStyle = "#70ff91";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < court.length; i++) {
+        const p = court[i];
+        if (!p) continue;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillText(String(i + 1), p.x + 8, p.y - 8);
+      }
+      if (valid.length === 4) {
+        ctx.beginPath();
+        ctx.moveTo(court[0].x, court[0].y);
+        for (let i = 1; i < 4; i++) ctx.lineTo(court[i].x, court[i].y);
+        ctx.closePath();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function draw() {
+      if (!video.videoWidth) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const f = frameIndex();
+      const ann = annotations[String(f)] || {};
+      drawCourt();
+      drawPoint(ann.far, "#00c2ff", "远端");
+      drawPoint(ann.near, "#ff70d7", "近端");
+      drawPoint(ann.ball, "#ffd34d", "球");
+      frameLabel.textContent = `第 ${f} 帧`;
+      scrub.max = String(maxFrame());
+      scrub.value = String(f);
+      updateInfo();
+    }
+
+    function updateInfo() {
+      const f = frameIndex();
+      const ann = annotations[String(f)] || {};
+      const parts = [];
+      const names = { far: "远端", near: "近端", ball: "羽毛球" };
+      for (const key of ["far", "near", "ball"]) {
+        if (ann[key]) parts.push(`${names[key]}: ${ann[key].x}, ${ann[key].y}`);
+      }
+      currentInfo.textContent = parts.length ? parts.join(" | ") : "当前帧没有标注。";
+      labelStat.textContent = String(Object.keys(annotations).length);
+      durationStat.textContent = `${(video.duration || 0).toFixed(1)}s`;
+    }
+
+    function sortedFramesWith(target) {
+      return Object.keys(annotations)
+        .map(Number)
+        .filter((f) => annotations[String(f)] && annotations[String(f)][target])
+        .sort((a, b) => a - b);
+    }
+
+    function interpolatedPoint(target, frame) {
+      const own = annotations[String(frame)] && annotations[String(frame)][target];
+      if (own || !interpolateInput.checked) return own || null;
+      const frames = sortedFramesWith(target);
+      const prev = [...frames].reverse().find((f) => f < frame);
+      const next = frames.find((f) => f > frame);
+      if (prev === undefined || next === undefined) return null;
+      const a = annotations[String(prev)][target];
+      const b = annotations[String(next)][target];
+      const t = (frame - prev) / Math.max(1, next - prev);
+      return {
+        x: Math.round(a.x + (b.x - a.x) * t),
+        y: Math.round(a.y + (b.y - a.y) * t),
+        v: 1,
+      };
+    }
+
+    function exportCsv() {
+      const frames = Object.keys(annotations).map(Number).sort((a, b) => a - b);
+      if (interpolateInput.checked && frames.length) {
+        const first = frames[0];
+        const last = frames[frames.length - 1];
+        frames.length = 0;
+        for (let f = first; f <= last; f++) frames.push(f);
+      }
+      const courtValue = court.every(Boolean)
+        ? court.map((p) => `${p.x}:${p.y}`).join("|")
+        : "";
+      const rows = [[
+        "Frame",
+        "Ball_X", "Ball_Y", "Ball_Visibility",
+        "Far_X", "Far_Y", "Far_Visibility",
+        "Near_X", "Near_Y", "Near_Visibility",
+        "Court_Points",
+      ]];
+      for (const f of frames) {
+        const ball = interpolatedPoint("ball", f);
+        const far = interpolatedPoint("far", f);
+        const near = interpolatedPoint("near", f);
+        rows.push([
+          f,
+          ball ? ball.x : 0, ball ? ball.y : 0, ball ? 1 : 0,
+          far ? far.x : 0, far ? far.y : 0, far ? 1 : 0,
+          near ? near.x : 0, near ? near.y : 0, near ? 1 : 0,
+          courtValue,
+        ]);
+      }
+      download("trajectory_labels.csv", rows.map((r) => r.join(",")).join("\n"));
+    }
+
+    function exportJson() {
+      download("trajectory_labels.json", JSON.stringify({ fps: fps(), court, annotations }, null, 2));
+    }
+
+    function download(name, text) {
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    document.querySelectorAll("[data-mode]").forEach((button) => {
+      button.addEventListener("click", () => {
+        mode = button.dataset.mode;
+        document.querySelectorAll("[data-mode]").forEach((b) => b.classList.toggle("active", b === button));
+      });
+    });
+
+    document.getElementById("videoFile").addEventListener("change", (evt) => {
+      const file = evt.target.files && evt.target.files[0];
+      if (!file) return;
+      video.src = URL.createObjectURL(file);
+      video.addEventListener("loadedmetadata", () => seekFrame(0), { once: true });
+    });
+
+    document.getElementById("prevFrame").addEventListener("click", () => seekFrame(frameIndex() - 1));
+    document.getElementById("nextFrame").addEventListener("click", () => seekFrame(frameIndex() + 1));
+    document.getElementById("copyPrev").addEventListener("click", () => {
+      const f = frameIndex();
+      const prev = annotations[String(f - 1)];
+      if (prev) annotations[String(f)] = JSON.parse(JSON.stringify(prev));
+      draw();
+    });
+    document.getElementById("exportCsv").addEventListener("click", exportCsv);
+    document.getElementById("exportJson").addEventListener("click", exportJson);
+    document.getElementById("importJson").addEventListener("change", async (evt) => {
+      const file = evt.target.files && evt.target.files[0];
+      if (!file) return;
+      const data = JSON.parse(await file.text());
+      annotations = data.annotations || {};
+      court = data.court || [null, null, null, null];
+      if (data.fps) fpsInput.value = String(data.fps);
+      draw();
+    });
+
+    fpsInput.addEventListener("change", draw);
+    scrub.addEventListener("input", () => seekFrame(Number(scrub.value)));
+    video.addEventListener("seeked", draw);
+
+    canvas.addEventListener("click", (evt) => {
+      if (!video.videoWidth) return;
+      const p = canvasPoint(evt);
+      const f = frameIndex();
+      if (mode.startsWith("court")) {
+        court[Number(mode.replace("court", ""))] = p;
+      } else if (mode === "erase") {
+        eraseNearest(f, p);
+      } else {
+        setPoint(f, mode, p);
+      }
+      draw();
+    });
+
+    window.addEventListener("keydown", (evt) => {
+      if (evt.target && ["INPUT", "SELECT"].includes(evt.target.tagName)) return;
+      if (evt.key === "ArrowLeft") seekFrame(frameIndex() - 1);
+      if (evt.key === "ArrowRight") seekFrame(frameIndex() + 1);
+      if (evt.key === "1") document.querySelector('[data-mode="far"]').click();
+      if (evt.key === "2") document.querySelector('[data-mode="near"]').click();
+      if (evt.key === "3") document.querySelector('[data-mode="ball"]').click();
+      if (evt.key === "Backspace" || evt.key === "Delete") document.querySelector('[data-mode="erase"]').click();
+    });
+
+    draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python -c \"import ast; ast.parse\\(open\\('pipeline_code/overlay_player_analytics.py'\\).read\\(\\)\\); print\\('syntax ok'\\)\")",
+      "Bash(.venv/bin/python -c \"import ast; ast.parse\\(open\\('pipeline_code/export_coreml.py'\\).read\\(\\)\\); print\\('export syntax ok'\\)\")",
+      "Bash(.venv/bin/python pipeline_code/overlay_player_analytics.py --video_path output_tracknet/41.mp4 --output_path output_final/41_smoke_test.mp4 --ball_csv output_tracknet/41_ball.csv --yolo_model '/Users/zhujinpeng/Library/Mobile Documents/com~apple~CloudDocs/pipeline_repro_bundle/weights/yolov8s-pose.pt' --tracker_cfg bytetrack.yaml --detect_interval 1 --imgsz 960 --no_select_court_points --court_points 352,232,613,232,719,525,244,525 --device mps --trail_jump_split_px 80 --no_draw_pose --profile --max_frames 150)",
+      "Bash(.venv/bin/python pipeline_code/overlay_player_analytics.py --video_path output_tracknet/41.mp4 --output_path output_final/41_analysis.mp4 --ball_csv output_tracknet/41_ball.csv --yolo_model '/Users/zhujinpeng/Library/Mobile Documents/com~apple~CloudDocs/pipeline_repro_bundle/weights/yolov8s-pose.pt' --tracker_cfg bytetrack.yaml --detect_interval 1 --imgsz 960 --no_select_court_points --court_points 352,232,613,232,719,525,244,525 --device mps --trail_jump_split_px 80 --no_draw_pose --profile)",
+      "Bash(tee output_final/41_analysis_run.log)",
+      "Bash(.venv/bin/python pipeline_code/overlay_player_analytics.py --video_path output_tracknet/41.mp4 --output_path output_final/41_analysis.mp4 --ball_csv output_tracknet/41_ball.csv --yolo_model '/Users/zhujinpeng/Library/Mobile Documents/com~apple~CloudDocs/pipeline_repro_bundle/weights/yolov8s-pose.pt' --tracker_cfg bytetrack.yaml --detect_interval 1 --no_select_court_points --court_points 352,232,613,232,719,525,244,525 --device mps --trail_jump_split_px 80 --no_draw_pose)",
+      "Bash(.venv/bin/python -)",
+      "Bash(.venv/bin/python pipeline_code/overlay_player_analytics.py --video_path output_tracknet/41.mp4 --output_path output_final/41_verify.mp4 --ball_csv output_tracknet/41_ball.csv --yolo_model '/Users/zhujinpeng/Library/Mobile Documents/com~apple~CloudDocs/pipeline_repro_bundle/weights/yolov8s-pose.pt' --tracker_cfg bytetrack.yaml --detect_interval 1 --no_select_court_points --court_points 352,232,613,232,719,525,244,525 --device mps --trail_jump_split_px 80 --no_draw_pose --max_frames 200)",
+      "Bash(cd /Users/zhujinpeng/Desktop/yumaoqiu *)",
+      "Bash(.venv/bin/python pipeline_code/overlay_player_analytics.py --video_path output_tracknet/41.mp4 --output_path output_final/41_verify.mp4 --ball_csv output_tracknet/41_ball.csv --yolo_model '/Users/zhujinpeng/Library/Mobile Documents/com~apple~CloudDocs/pipeline_repro_bundle/weights/yolov8s-pose.pt' --tracker_cfg bytetrack.yaml --detect_interval 1 --no_select_court_points --court_points 352,232,613,232,719,525,244,525 --device mps --trail_jump_split_px 80 --no_draw_pose --max_frames 220)",
+      "WebSearch"
+    ],
+    "additionalDirectories": [
+      "/tmp",
+      "/private/tmp"
+    ]
+  }
+}
