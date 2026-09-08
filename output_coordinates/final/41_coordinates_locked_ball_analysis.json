@@ -1,0 +1,29 @@
+{
+  "frames": 13344,
+  "fps": 20.999984631446726,
+  "duration_sec": 635.4290364583333,
+  "ball_valid_frames": 12977,
+  "ball_coverage_pct": 97.24970023980815,
+  "ball_distance_m_filtered": 12410.093156343326,
+  "ball_mean_speed_mps_filtered": 28.27449649104243,
+  "ball_max_speed_mps_filtered": 99.8363441343099,
+  "ball_jump_frames": 3959,
+  "ball_missing_frames": 367,
+  "notes": [
+    "Ball speed is a 2D homography projection.",
+    "Jump frames are retained and flagged in the CSV."
+  ],
+  "ball_direction_changes_gt30deg": 2499,
+  "player_source_counts": {
+    "player_near_source": {
+      "detect": 9558,
+      "flow": 172,
+      "missing": 3614
+    },
+    "player_far_source": {
+      "missing": 3460,
+      "detect": 7673,
+      "flow": 2211
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "video": "41.MP4",
+  "coordinate_system": "pixel, origin at top-left, x rightward, y downward",
+  "frame_size": {"width": 960, "height": 544},
+  "order": ["top_left", "top_right", "bottom_right", "bottom_left"],
+  "points": {
+    "top_left": [352, 232],
+    "top_right": [613, 232],
+    "bottom_right": [719, 525],
+    "bottom_left": [244, 525]
+  },
+  "court_points_argument": "352,232,613,232,719,525,244,525"
+}
